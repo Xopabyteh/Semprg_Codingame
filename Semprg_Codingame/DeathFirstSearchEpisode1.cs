@@ -70,29 +70,17 @@ class Player
                 foreach (var connectedNode in links[searchNode])
                 {
                     bfsNodes.Enqueue(connectedNode);
-                }
-
-                //If we've reached an exit
-                if (exits.Contains(searchNode))
-                {
                     
+                    //If we've reached an exit
+                    if (exits.Contains(searchNode))
+                    {
+                        Console.WriteLine($"{searchNode} {connectedNode}");
+                        return;
+                    }
                 }
             }
 
-            // Example: 0 1 are the indices of the nodes you wish to sever the link between
-            Console.WriteLine("0 1");
-        }
-    }
-
-    public readonly struct Link
-    {
-        public readonly int Node1;
-        public readonly int Node2;
-
-        public Link(int node1, int node2)
-        {
-            Node1 = node1;
-            Node2 = node2;
+            Console.Error.WriteLine("No exit found");
         }
     }
 }
