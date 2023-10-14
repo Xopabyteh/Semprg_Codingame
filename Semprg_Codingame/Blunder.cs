@@ -46,9 +46,9 @@ class Solution
             {
                 var c = _map[x, y];
                 if (blunderPos.X == x && blunderPos.Y == y)
-                    Console.Error.Write('&');
+                    Console.Error.Write("&");
                 else
-                    Console.Error.Write(c);
+                    Console.Error.Write($"{c}");
 
             }
 
@@ -61,7 +61,7 @@ class Solution
         string[] inputs = Console.ReadLine().Split(' ');
         _height = int.Parse(inputs[0]);
         _width = int.Parse(inputs[1]);
-        _map = new char[_height, _width];
+        _map = new char[_width, _height];
 
         var currentUnion = new BlunderMoveUnion(BlunderMove.South, new(3));
         Int2 currentPosition = default;
@@ -82,8 +82,8 @@ class Solution
                         currentPosition = new Int2(x, y);
                         break;
                     case 'T':
-                        _teleporters = assignedFirstTeleporter 
-                            ? (_teleporters.tp1, new Int2(x, y)) 
+                        _teleporters = assignedFirstTeleporter
+                            ? (_teleporters.tp1, new Int2(x, y))
                             : (new Int2(x, y), _teleporters.tp2);
                         assignedFirstTeleporter = true;
                         break;
@@ -92,24 +92,26 @@ class Solution
         }
 
         var resultBuilder = new StringBuilder();
-        //var moveHistory = new List<BlunderMoveUnion>(64);
-        //var positionHistory = new List<Int2>(64);
-        //var brokenWallsHistory = new List<List<Int2>>(64);
-
+        
         var historyI = 0;
+        var positionHistory = new List<Int2>();
+        var brokenWallsHistory = new List<List<Int2>>();
+        var moveUnionHistory = new List<BlunderMoveUnion>();
+
         while (true)
         {
+            var brokenWallsThisIteration = new List<Int2>();
+            //Add all walls from last iteration
+            if (historyI > 0)
+                brokenWallsThisIteration.AddRange(brokenWallsHistory[historyI - 1]);
+
             DrawMap(currentPosition);
             var nextMove = GetNextMove(currentPosition, currentUnion);
-            Console.Error.WriteLine($"Next move: {nextMove.Move.Name}, isB: {nextMove.Attributes.Contains(BlunderMoveAttribute.IsBreakerMode)}, isI: {nextMove.Attributes.Contains(BlunderMoveAttribute.IsInvertedMode)}");
+            Console.Error.WriteLine(
+                $"Next move: {nextMove.Move.Name}, isB: {nextMove.Attributes.Contains(BlunderMoveAttribute.IsBreakerMode)}, isI: {nextMove.Attributes.Contains(BlunderMoveAttribute.IsInvertedMode)}");
 
             if (nextMove.Move == BlunderMove.Stop)
                 break;
-
-            //if (nextMove.IsBreakerMode)
-            //{
-            //    isInBreakerMode = !isInBreakerMode;
-            //}
 
             if (nextMove.Attributes.Contains(BlunderMoveAttribute.TeleportTo1))
             {
@@ -122,47 +124,91 @@ class Solution
                 nextMove.Attributes.Remove(BlunderMoveAttribute.TeleportTo2);
             }
 
-            currentUnion = nextMove;
-            currentPosition += currentUnion.Move.Direction;
-
-            //brokenWallsHistory[historyI].AddRange(brokenWallsHistory[historyI - 1]);
-
-
             if (currentUnion.Attributes.Contains(BlunderMoveAttribute.IsBreakerMode))
             {
                 //Remove X from map
                 if (_map[currentPosition.X, currentPosition.Y] == 'X')
                 {
                     _map[currentPosition.X, currentPosition.Y] = ' ';
-                    //brokenWallsHistory[historyI].Add(currentPosition);
+                    brokenWallsThisIteration.Add(currentPosition);
                 }
             }
-            
-            resultBuilder.AppendLine(nextMove.Move.Name);
-            //moveHistory[historyI] = currentUnion;
-            //positionHistory[historyI] = currentPosition;
 
-            //if (IsBlunderLooping(moveHistory, positionHistory, brokenWallsHistory))
-            //{
-            //    resultBuilder
-            //        .Clear()
-            //        .AppendLine("LOOP");
-                
-            //    break;
-            //}
+            resultBuilder.AppendLine(nextMove.Move.Name);
+            brokenWallsThisIteration.ForEach(w => Console.Error.WriteLine($"bw: x{w.X} y{w.Y}"));
+
+            if (IsBlunderLooping(currentPosition, brokenWallsThisIteration, nextMove, positionHistory, brokenWallsHistory, moveUnionHistory))
+            {
+                resultBuilder
+                    .Clear()
+                    .AppendLine("LOOP");
+
+                break;
+            }
+
+            currentUnion = nextMove;
+
+            //Save state
+            historyI++;
+            positionHistory.Add(currentPosition);
+            brokenWallsHistory.Add(brokenWallsThisIteration);
+            moveUnionHistory.Add(currentUnion);
+
+            currentPosition += currentUnion.Move.Direction;
         }
 
         Console.WriteLine(resultBuilder.ToString());
     }
 
-    //Todo:
-    //private static bool IsBlunderLooping(
-        //List<BlunderMoveUnion> moveHistory,
-        //List<Int2> positionHistory,
-        //List<List<Int2>> brokenWallsHistory)
-    //{
+    private static bool IsBlunderLooping(
+        Int2 currentPosition,
+        List<Int2> currentBrokenWalls,
+        BlunderMoveUnion nextMoveUnion,
+        List<Int2> positionHistory, //Without current
+        List<List<Int2>> brokenWallsHistory, //Without current
+        List<BlunderMoveUnion> moveUnionHistory //Without current
+        )
+    {
+        //There is a loop if blunder is in the same position and has the same broken walls as before
+        for (int hI = 0; hI < positionHistory.Count; hI++)
+        {
+            if (currentPosition != positionHistory[hI]) 
+                continue;
 
-    //}
+            //We are at the same position as before, check if broken walls are the same
+
+            //Check if move union is the same
+            var moveUnionAtHistory = moveUnionHistory[hI];
+            if (
+                nextMoveUnion.Move != moveUnionAtHistory.Move
+                || !nextMoveUnion.Attributes.SequenceEqual(moveUnionAtHistory.Attributes)
+                )
+            {
+                //We have a different move
+                return false;
+            }
+
+            var brokenWallsAtHistory = brokenWallsHistory[hI];
+            if (currentBrokenWalls.SequenceEqual(brokenWallsAtHistory))
+            {
+                //We have the same broken walls as before
+
+                //Write everything
+                Console.Error.WriteLine($"Current Pos: {currentPosition.X} {currentPosition.Y}");
+                Console.Error.WriteLine($"History Pos: {positionHistory[hI].X} {positionHistory[hI].Y}");
+                
+                Console.Error.WriteLine($"Current Move: {nextMoveUnion.Move.Name}");
+                Console.Error.WriteLine($"History Move: {moveUnionAtHistory.Move.Name}");
+
+                Console.Error.WriteLine($"Current Attributes: {string.Join(", ", nextMoveUnion.Attributes)}");
+                Console.Error.WriteLine($"History Attributes: {string.Join(", ", moveUnionAtHistory.Attributes)}");
+
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static BlunderMoveUnion GetNextMove(Int2 currentPosition, BlunderMoveUnion currentUnion, int triedDirections = 0, bool collectedBeerNow = false)
     {
@@ -204,9 +250,12 @@ class Solution
 
             (_, '#') => GetNextMove(
                 currentPosition,
-                currentUnion with {Move = moveAttributes.Contains(BlunderMoveAttribute.IsInvertedMode)
+                currentUnion with
+                {
+                    Move = moveAttributes.Contains(BlunderMoveAttribute.IsInvertedMode)
                     ? BlunderMove.DirectionsInOrderInverted[triedDirections]
-                    : BlunderMove.DirectionsInOrder[triedDirections]},
+                    : BlunderMove.DirectionsInOrder[triedDirections]
+                },
                 triedDirections + 1, collectedBeerNow).Move,
 
             (_, 'X') => moveAttributes.Contains(BlunderMoveAttribute.IsBreakerMode)
@@ -232,7 +281,7 @@ class Solution
 
 public readonly record struct BlunderMoveUnion(BlunderMove Move, List<BlunderMoveAttribute> Attributes);
 
-public  readonly struct BlunderMove
+public readonly struct BlunderMove
 {
     public readonly string Name;
     public readonly Int2 Direction = default;
@@ -259,20 +308,20 @@ public  readonly struct BlunderMove
     public static readonly BlunderMove West = new("WEST", new Int2(-1, 0)); //Left
 
     public static readonly Dictionary<int, BlunderMove> DirectionsInOrder = new()
-    {
-        {0, South},
-        {1, East},
-        {2, North},
-        {3, West}
-    };
+        {
+            {0, South},
+            {1, East},
+            {2, North},
+            {3, West}
+        };
 
     public static readonly Dictionary<int, BlunderMove> DirectionsInOrderInverted = new()
-    {
-        {0, West},
-        {1, North},
-        {2, East},
-        {3, South}
-    };
+        {
+            {0, West},
+            {1, North},
+            {2, East},
+            {3, South}
+        };
 
 
     public static readonly BlunderMove Stop = new("S");
