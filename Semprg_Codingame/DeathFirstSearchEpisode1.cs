@@ -47,7 +47,7 @@ class Player
 
                 visitedNodes.Add(searchNode);
 
-                var connectedNodes = GetNodesConnectedTo(searchNod e, links);
+                var connectedNodes = GetNodesConnectedTo(searchNode, links);
                 foreach (var connectedNode in connectedNodes)
                 {
                     //If node is exit, we're done

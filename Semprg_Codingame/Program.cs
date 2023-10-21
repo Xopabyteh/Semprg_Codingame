@@ -1,2 +1,6 @@
-﻿// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+﻿using System.Data;using Kata;
+var flCalc = new FluentCalculator();
+
+var expression = flCalc.One.Plus.Two.Times.Eight.Result();
+
+Console.WriteLine(expression);
